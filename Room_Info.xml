@@ -40,10 +40,10 @@
 <aliases>
 
 <alias
-   match="dbquery *"
+   match="roominfo update"
    enabled="y"
    sequence="100"
-   script="dbquery_alias"
+   script="update_room_table"
    regexp="n"
 ></alias>
 
@@ -53,10 +53,8 @@
 <![CDATA[
 
 dofile (GetInfo(60) .. "aardwolf_colors.lua")
-require "tprint"
 require "gmcphelper"
-require "serialize"
-require "wait"
+dofile(GetInfo(60) .. "telnet_options.lua")
 
 function update_room_table()
 	print("Building room_table from Mapper database...")
@@ -100,47 +98,13 @@ function dbquery()
 	return count
 end
 
-function dbquery_alias(aliasname, aliasline, wildcards)
-	db = assert (sqlite3.open(GetInfo (66) .. sanitize_filename(WorldName()) .. ".db"))
-	print(db:isopen())
-	print("Query submitted:", table.concat(wildcards, " "))
-	local stmt = db:prepare(table.concat(wildcards, " "))
-	local count = 0
-	-- loop until we get everything
-	while true do
-		local result = stmt:step()
-		-- exit loop if done
-		if result == sqlite3.DONE then
-			print(string.rep("-", 20))
-			print("Query completed with", count, "results.")
-			break
-		end -- if done
-		-- should have ROW result
-		assert(result == sqlite3.ROW, "Row not found.")
-		-- get all values into a table
-		local row = stmt:get_named_values()
-		-- display them
-		print(string.rep("-", 20))
-		count = count + 1
-		tprint(row)
-	end -- while
-
-	-- done with this statement
-	stmt:finalize()
-
-	-- finished with database
-	db:close()
-	print("DB open:", db:isopen())
-end
-
 function sanitize_filename(str)
    str = string.gsub(str, "[^%w%s()_-]", "")
    return Trim(str)
 end
 
-function format_rname (room_id)
+function format_rname(room_id)
 	output = stylesToANSI(TSRtable)
-	--print(output)
 	local room = tostring(room_id)
 	rid_display = ColoursToANSI(" @W" .. room .. "@w")
 	formatted_output = output .. rid_display
@@ -152,14 +116,13 @@ function format_rname (room_id)
 			formatted_output = formatted_output .. nor_display
 		end
 	end
-	AnsiNote(string.sub(formatted_output, 15))
+	AnsiNote(string.sub(formatted_output, 25))
 end
 
 function OnPluginBroadcast(msg, id, name, text)
 	if (id == "3e7dedbe37e44942dd46d264") then
 		if (text == "room.info") then
 			rid = gmcp("room.info.num")
-			--print("Calling format_rname with rid =", rid)
 			format_rname(rid)
 		end
 	end
@@ -171,6 +134,7 @@ end
 
 function OnPluginEnable()
 	print("Room_Info plugin enabled.")
+	TelnetOptionOn(TELOPT_ROOMNAME_TAGS)
 	TSRtable = {}
 	room_table = {}
 	room_id = ""
